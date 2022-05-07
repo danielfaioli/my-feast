@@ -1,0 +1,5 @@
+environment.sh
+venv/
+volumes/
+.DS_Store
+kubeconfig
