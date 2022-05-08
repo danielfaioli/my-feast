@@ -3,3 +3,5 @@ venv/
 volumes/
 .DS_Store
 kubeconfig
+infra/on-prem/test
+data/
