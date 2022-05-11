@@ -11,7 +11,7 @@ ADD workspace/ ${SHARED_WORKSPACE}/
 
 # -- Layer: JupyterLab + Python kernel for PySpark
 
-ARG spark_version=3.0.0
+ARG spark_version=3.2.1
 ARG jupyterlab_version=3.0.0
 ARG scala_version=2.12.10
 ARG scala_kernel_version=0.10.9
