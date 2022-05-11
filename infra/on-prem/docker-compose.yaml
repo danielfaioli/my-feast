@@ -1,12 +1,4 @@
 version: "3.6"
-
-volumes:
-  shared-workspace: 
-    name: "shared-file-system"
-    driver: local
-  datanode:
-  namenode:
-
 services:
   namenode:
     image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
@@ -16,7 +8,7 @@ services:
     container_name: namenode
     volumes:
       - namenode:/hadoop/dfs/name
-      - shared-workspace:/opt/workspace
+      - $PWD/workspace-dev/data:/opt/workspace
     environment:
       - CLUSTER_NAME=datamaster
     env_file:
@@ -39,7 +31,7 @@ services:
       - namenode
     volumes:
       - ./data/datanode:/hadoop/dfs/data
-      - shared-workspace:/opt/workspace
+      - $PWD/workspace-dev/data:/opt/workspace
     env_file:
       - ./conf/hadoop.env
     ports:
@@ -47,8 +39,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.5'
-          memory: 1g
+          cpus: '2'
+          memory: 2g
 
   jupyterlab:
     image: spark-standalone-jupyterlab:latest
@@ -60,7 +52,7 @@ services:
       - 8888:8888
       - 4040:4040
     volumes:
-      - shared-workspace:/opt/workspace
+      - $PWD/workspace-dev:/opt/workspace
     deploy:
       resources:
         limits:
@@ -79,7 +71,7 @@ services:
     env_file:
       - ./conf/hadoop.env
     volumes:
-      - shared-workspace:/opt/workspace
+      - $PWD/workspace-dev/data:/opt/workspace
     deploy:
       resources:
         limits:
@@ -107,7 +99,7 @@ services:
     env_file:
       - ./conf/hadoop.env
     volumes:
-      - shared-workspace:/opt/workspace
+      - $PWD/workspace-dev/data:/opt/workspace
   spark-worker-2:
     image: spark-standalone-spark-worker:latest
     networks:
@@ -129,7 +121,14 @@ services:
     env_file:
       - ./conf/hadoop.env
     volumes:
-      - shared-workspace:/opt/workspace
+      - $PWD/workspace-dev/data:/opt/workspace
+
+volumes:
+  shared-workspace: 
+    name: "shared-file-system"
+    driver: local
+  datanode:
+  namenode:
 
 networks:
   cluster:
