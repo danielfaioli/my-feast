@@ -5,3 +5,5 @@ volumes/
 kubeconfig
 infra/on-prem/test
 data/
+.ipynb_checkpoints
+kernels
