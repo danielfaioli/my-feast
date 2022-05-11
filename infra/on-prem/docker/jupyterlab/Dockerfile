@@ -1,4 +1,5 @@
 FROM spark-standalone-cluster-base
+LABEL maintainer="Daniel Faioli <dthereza.min@gmail.com>"
 # -- Layer: Image metadata
 
 LABEL org.label-schema.name="Apache Spark Standalone Cluster on Docker - Spark Base Image"

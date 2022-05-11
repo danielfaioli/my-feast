@@ -1,6 +1,6 @@
 ARG debian_buster_image_tag=8-jre-slim
 FROM openjdk:${debian_buster_image_tag}
-
+LABEL maintainer="Daniel Faioli <dthereza.min@gmail.com>"
 # -- Layer: Image metadata
 
 LABEL org.label-schema.name="Apache Spark Standalone Cluster on Docker - Cluster Base Image"
