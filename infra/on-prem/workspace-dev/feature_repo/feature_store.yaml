@@ -1,0 +1,19 @@
+registry:
+  registry_store_type: feast_azure_provider.registry_store.AzBlobRegistryStore
+  path: "https://myfeastregistry.blob.core.windows.net/feast/registry.db"
+project: production
+provider: feast_azure_provider.azure_provider.AzureProvider
+online_store:
+    type: redis
+    connection_string: "https://myfeastregistry.blob.core.windows.net/feast"
+offline_store:
+    type: spark
+    spark_conf:
+        spark.master: "spark://spark-master:7077"
+        spark.ui.enabled: "true"
+        spark.eventLog.enabled: "false"
+        spark.sql.parser.quotedRegexColumnNames: "true"
+        spark.sql.session.timeZone: "UTC"
+        spark.executor.memory: 1g
+        spark.executor.cores: 2
+        
