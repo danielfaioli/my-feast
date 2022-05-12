@@ -9,6 +9,7 @@ LABEL org.label-schema.schema-version="1.0"
 # -- Layer: Notebooks and Data
 
 ADD workspace/ ${SHARED_WORKSPACE}/
+ADD conf/jupyterlab/requirements.txt requirements.txt
 
 # -- Layer: JupyterLab + Python kernel for PySpark
 
@@ -18,7 +19,7 @@ ARG scala_version=2.12.10
 ARG scala_kernel_version=0.10.9
 
 RUN apt-get update -y && \
-    apt-get install -y python3-pip python3-dev && \
+    apt-get install -y python3-pip python3-dev python3-venv && \
     pip3 install --upgrade pip && \
     pip3 install wget==3.2 pyspark==${spark_version} jupyterlab==${jupyterlab_version}
 
@@ -44,4 +45,17 @@ RUN apt-get install -y r-base-dev && \
 EXPOSE 8888
 
 WORKDIR ${SHARED_WORKSPACE}
-CMD jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --NotebookApp.token=
+
+RUN apt-get install -y unixodbc-dev
+
+RUN python3 -m venv venv && \
+    . venv/bin/activate
+
+RUN pip install -r requirements.txt
+
+RUN python3 -m ipykernel install --user --name myfeast
+
+RUN apt-get install -y zsh iputils-ping telnet && \
+    wget https://github.com/robbyrussell/oh-my-zsh/raw/master/tools/install.sh -O - | zsh || true
+
+CMD export SHELL=/bin/zsh ; jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --NotebookApp.token=

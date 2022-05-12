@@ -1,3 +1,2 @@
-pyodbc
 feast-azure-provider
 feast==0.20.2
