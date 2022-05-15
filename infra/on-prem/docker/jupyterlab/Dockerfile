@@ -46,12 +46,12 @@ EXPOSE 8888
 
 WORKDIR ${SHARED_WORKSPACE}
 
-RUN apt-get install -y unixodbc-dev
+RUN apt-get install -y unixodbc-dev git 
 
 RUN python3 -m venv venv && \
     . venv/bin/activate
 
-RUN pip install -r requirements.txt
+RUN pip install git+https://github.com/danielfaioli/feast-azure.git#subdirectory=provider/sdk/
 
 RUN python3 -m ipykernel install --user --name myfeast
 
