@@ -17,21 +17,21 @@ build:
 # 	TODO: Add automation to push images to docker hub.
 
 # starts the cluster only
-make cluster:
+cluster:
 	@docker compose up -d namenode datanode spark-master spark-worker-1  spark-worker-2
 
 # starts cluster and interactive interface (Jupyter Hub)
-make interactive:
+interactive:
 	@docker compose up -d namenode datanode spark-master spark-worker-1  spark-worker-2 jupyterlab
 
 # starts the cluster and the ingestion process 
-# make cluster-ingestion:
+cluster-ingestion:
 	# @docker compose up -d namenode datanode spark-master spark-worker-1  spark-worker-2 workmachine
 
 # starts only the jupyter hub service - should be used if the cluster is already running
-# make jupyter:
+jupyter:
 	# @docker compose up -d jupyterlab
 
 # runs the ingestion process
-make ingestion:
+ingestion:
 	@docker compose up workmachine
