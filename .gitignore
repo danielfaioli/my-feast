@@ -7,3 +7,8 @@ infra/on-prem/test
 data/
 .ipynb_checkpoints
 kernels
+draft.ipynb
+infra/on-prem/workspace-dev/ingest_taxy.py
+k8s/
+requirements-dev.txt
+workspace/
