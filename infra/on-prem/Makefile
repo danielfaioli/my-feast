@@ -22,6 +22,7 @@ cluster:
 
 # starts cluster and interactive interface (Jupyter Hub)
 interactive:
+	@. ./environment.sh
 	@docker compose up -d namenode datanode spark-master spark-worker-1  spark-worker-2 jupyterlab
 
 # starts the cluster and the ingestion process 
