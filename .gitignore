@@ -12,3 +12,5 @@ infra/on-prem/workspace-dev/ingest_taxy.py
 k8s/
 requirements-dev.txt
 workspace/
+*.pdf
+*.html
