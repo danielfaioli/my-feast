@@ -39,14 +39,4 @@ svr_writer(
     partitionBy="created"
 )
 
-# COMMAND ----------
-
-os.environ["SILVER"]
-
-# COMMAND ----------
-
-df.show()
-
-# COMMAND ----------
-
 
