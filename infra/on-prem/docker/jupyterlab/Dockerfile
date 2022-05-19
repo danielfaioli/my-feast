@@ -51,7 +51,8 @@ RUN apt-get install -y unixodbc-dev git
 RUN python3 -m venv venv && \
     . venv/bin/activate
 
-RUN pip install git+https://github.com/danielfaioli/feast-azure.git#subdirectory=provider/sdk/
+RUN pip install git+https://github.com/danielfaioli/feast-azure.git#subdirectory=provider/sdk/ && \
+    pip install sodapy tqdm
 
 RUN python3 -m ipykernel install --user --name myfeast
 

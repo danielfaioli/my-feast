@@ -48,6 +48,11 @@ services:
       cluster:
         ipv4_address: 10.0.5.4
     container_name: jupyterlab
+    environment:
+      - AZURE_TENANT_ID=$AZURE_TENANT_ID
+      - AZURE_CLIENT_ID=$AZURE_CLIENT_ID
+      - AZURE_CLIENT_SECRET=$AZURE_CLIENT_SECRET
+      - STORAGE_ACCOUNT_KEY=$STORAGE_ACCOUNT_KEY
     ports: 
       - 8888:8888
       - 4040:4040
@@ -59,12 +64,29 @@ services:
           cpus: '1'
           memory: 2g
 
+  workmachine:
+    image: spark-standalone-workmachine:latest
+    networks:
+      cluster:
+        ipv4_address: 10.0.5.8
+    container_name: workmachine
+    volumes:
+      - $PWD/ingest_scripts:/opt/workspace
+    environment:
+      - INGEST_SCRIPT=ingest_taxy.py
+      - PARAMS=2022,4
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2g
+
   spark-master:
     image: spark-standalone-spark-master:latest
     networks:
       cluster:
         ipv4_address: 10.0.5.5
-    container_name: spark_master
+    container_name: spark-master
     ports:
       - 8080:8080
       - 7077:7077
