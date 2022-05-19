@@ -1,0 +1,3 @@
+[submodule "feast-azure/feast-azure"]
+	path = feast-azure/feast-azure
+	url = https://github.com/danielfaioli/feast-azure.git
