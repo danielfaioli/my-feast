@@ -104,7 +104,7 @@ Esta API contem dados referentes às leituras de tempo na cidade de Chicago, det
 5. Service Principal (para autenticação entre a sessão Spark no Databricks e a Storage Account)
 6. Event Hub Workspace (Standard ou Premium - um workspace básico não possui suporte para captura de Eventos)
 
-O processo executado no script de ingestão, consiste de uma consulta à [API](https://data.cityofchicago.org/Parks-Recreation/Beach-Weather-Stations-Automated-Sensors/k7hf-8y75) para buscar dados diários das leturas climatológicas, é feito o controle da paginação da API e a criação de event batches para envio asíncrono ao Event Hub. O Event Hub workspace está configurado para capturar as mensagens postadas no tópico `chicago_weather_daily`; foi setado um buffer para captura das mensagens em intervalos de 3 minutos, de maneira a agregar as mensagens recebidas dentro desta janela em um único arquivo [avro](https://en.wikipedia.org/wiki/Apache_Avro). A ingestão destes dados para o Data Lake (na camada bronze), é realizada pelo script que pode ser encontrado [aqui](https://github.com/danielfaioli/my-feast/blob/master/infra/cloud/fs-cloud/chicago_weather_bronze.py). Assim como na ingestão no on-prem, os dados brutos não são transformados nesse step, faz-se a inclusão do metadado de criação do dataset (`created` field). O corpo das mensgens (`Body`), são armazenados na camada bronze, garantindo sua consistência com os dados da origem; é feita a padronização de formato (delta - parquet + metadados).
+O processo executado no script de ingestão consiste de uma consulta à [API](https://data.cityofchicago.org/Parks-Recreation/Beach-Weather-Stations-Automated-Sensors/k7hf-8y75) para buscar dados diários das leturas climatológicas, é feito o controle da paginação da API e a criação de event batches para envio asíncrono ao Event Hub. O Event Hub workspace está configurado para capturar as mensagens postadas no tópico `chicago_weather_daily`; foi setado um buffer para captura das mensagens em intervalos de 3 minutos, de maneira a agregar as mensagens recebidas dentro desta janela em um único arquivo [avro](https://en.wikipedia.org/wiki/Apache_Avro). A ingestão destes dados para o Data Lake (na camada bronze), é realizada pelo script que pode ser encontrado [aqui](https://github.com/danielfaioli/my-feast/blob/master/infra/cloud/fs-cloud/chicago_weather_bronze.py). Assim como na ingestão no on-prem, os dados brutos não são transformados nesse step, faz-se a inclusão do metadado de criação do dataset (`created` field). O corpo das mensgens (`Body`), são armazenados na camada bronze, garantindo sua consistência com os dados da origem; é feita a padronização de formato (delta - parquet + metadados).
 
 ![Cloud ingestion](docs/img/cloud-ingestion.png)
 
@@ -139,3 +139,376 @@ online_store:
 offline_store:
     type: spark # will use the active SparkSession
 ```
+
+A definição da feature store acima, é utilizada para conexão com o Feature Registry e mapeamento das origens dos dados que serão utilizados no escopo deste feature repo. A definição de features abaixo utiliza a configuração acima do feature repo:
+
+```python
+from feast.infra.offline_stores.contrib.spark_offline_store.spark_source import SparkSource
+from feast import Feature, FeatureView, ValueType
+from feast import FeatureStore
+from datetime import timedelta, datetime
+from feast import Entity
+
+fs = FeatureStore("./station_reads_hourly_fs")
+
+# Feature Source Definition
+station_reads_source = SparkSource(
+    file_format="parquet",
+    path=f"abfss://gold@myfeastadls.dfs.core.windows.net/chicago/weather/station_reads_hourly_fv",
+    timestamp_field="event_timestamp",
+    created_timestamp_column="created",
+    name="chi_station_reads_hourly_fv"
+)
+
+# Feature Definition
+station_reads_fv = FeatureView(
+    name="fv_chi_station_reads_hourly",
+    entities=["read_id"],
+    features=[
+        Feature(name="precipitation_type", dtype=ValueType.STRING),
+        Feature(name="avg_temp", dtype=ValueType.FLOAT),
+        Feature(name="total_rain", dtype=ValueType.FLOAT)
+    ],
+    batch_source=station_reads_source,
+)
+
+# Entity definition => entity == primary key 
+
+read_entity = Entity(name="read_id", value_type=ValueType.STRING)
+
+
+fs.apply([read_entity, station_reads_fv])
+```
+
+O script acima, define a fonte dos dados utilizados pela feature `fv_chi_station_reads_hourly`, a feature view, ou seja a agregação de variáveis e a entidade que as agregam, no caso a entidade é o `read_id`, esta atua como chave primária na recuperação de valores históricos e de vetores, durante o serving do modelo. 
+
+O último comando executado ```python fs.apply([read_entity, station_reads_fv])``` aplica as definições no feature registry. Para validar que a feature foi corretamente criada, pode-se executar o comando abaixo:
+
+![fv_chi_station_reads_hourly](docs/img/fv_chi_station_reads_hourly_def.png)
+
+### fv_chi_station_reads_hourly
+
+A configuração do feature repo no ambiente on-premises é similar à demonstrada para o ambiente cloud. Abaixo, segue apenas a definição da feature view `fv_chi_taxi_trips_hourly`. A definição do feature repo e o script completo podem ser consultados [aqui](https://github.com/danielfaioli/my-feast/tree/master/infra/on-prem/workspace-dev/fs-hadoop/fs_online) e [aqui](https://github.com/danielfaioli/my-feast/blob/master/infra/on-prem/workspace-dev/fs-hadoop/chicago_taxi_trips_hourly_gold.ipynb), respectivamente.
+
+```python
+from feast.infra.offline_stores.contrib.spark_offline_store.spark_source import SparkSource
+from feast import Feature, FeatureView, ValueType
+from datetime import timedelta, datetime
+from feast import Entity
+
+# Feature Source Definition
+trip_stats_source = SparkSource(
+    file_format="parquet",
+    path=f"{hdfs}/gold/chicago/f_taxi_trips_hourly",
+    timestamp_field="event_timestamp",
+    created_timestamp_column="created",
+    name="chi_taxi_trips_hourly"
+)
+
+# Feature Definition
+trip_stats_fv = FeatureView(
+    name="fv_chi_taxi_trips_hourly",
+    entities=["trip_id"],
+    features=[
+        Feature(name="avg_trip_time", dtype=ValueType.FLOAT),
+        Feature(name="avg_trip_dist", dtype=ValueType.FLOAT),
+        Feature(name="avg_trip_fare", dtype=ValueType.FLOAT),
+        Feature(name="avg_trip_tips", dtype=ValueType.FLOAT),
+        Feature(name="total_tips_hour", dtype=ValueType.FLOAT),
+        Feature(name="trips_count", dtype=ValueType.FLOAT),
+    ],
+    batch_source=trip_stats_source
+)
+
+# Entity definition => entity == primary key 
+
+trip_entity = Entity(name="trip_id", value_type=ValueType.STRING)
+```
+
+![fv_chi_taxi_trips_hourly](docs/img/fv_chi_taxi_trips_hourly.png)
+
+### Discover
+
+Em qualquer um dos ambientes, podemos agora, descobrir as features existentes, tanto no ambiente on-prem, quanto no ambiente on cloud. A execução do comando a seguir, lista as features existentes no projeto. 
+
+```python
+from feast import FeatureStore
+fs = FeatureStore("./fs_online")
+
+for f in fs.list_feature_views():
+    print(f)
+```
+
+O retorno deste comando por ser visto no código [aqui](https://github.com/danielfaioli/my-feast/blob/master/infra/on-prem/workspace-dev/fs-hadoop/chicago_taxi_trips_hourly_gold.ipynb)
+
+```json
+{
+  "spec": {
+    "name": "fv_chi_station_reads_hourly",
+    "features": [
+      {
+        "name": "precipitation_type",
+        "valueType": "STRING"
+      },
+      {
+        "name": "avg_temp",
+        "valueType": "FLOAT"
+      },
+      {
+        "name": "total_rain",
+        "valueType": "FLOAT"
+      }
+    ],
+    "ttl": "0s",
+    "batchSource": {
+      "type": "BATCH_SPARK",
+      "timestampField": "event_timestamp",
+      "createdTimestampColumn": "created",
+      "dataSourceClassType": "feast.infra.offline_stores.contrib.spark_offline_store.spark_source.SparkSource",
+      "name": "chi_station_reads_hourly_fv",
+      "sparkOptions": {
+        "path": "abfss://gold@myfeastadls.dfs.core.windows.net/chicago/weather/station_reads_hourly_fv",
+        "fileFormat": "parquet"
+      }
+    },
+    "online": true
+  },
+  "meta": {
+    "createdTimestamp": "2022-05-19T01:57:59.647444Z",
+    "lastUpdatedTimestamp": "2022-05-19T01:57:59.647444Z"
+  }
+}
+{
+  "spec": {
+    "name": "fv_chi_taxi_trips_hourly",
+    "entities": [
+      "trip_id"
+    ],
+    "features": [
+      {
+        "name": "avg_trip_time",
+        "valueType": "FLOAT"
+      },
+      {
+        "name": "avg_trip_dist",
+        "valueType": "FLOAT"
+      },
+      {
+        "name": "avg_trip_fare",
+        "valueType": "FLOAT"
+      },
+      {
+        "name": "avg_trip_tips",
+        "valueType": "FLOAT"
+      },
+      {
+        "name": "total_tips_hour",
+        "valueType": "FLOAT"
+      },
+      {
+        "name": "trips_count",
+        "valueType": "FLOAT"
+      }
+    ],
+    "ttl": "0s",
+    "batchSource": {
+      "type": "BATCH_SPARK",
+      "timestampField": "event_timestamp",
+      "createdTimestampColumn": "created",
+      "dataSourceClassType": "feast.infra.offline_stores.contrib.spark_offline_store.spark_source.SparkSource",
+      "name": "chi_taxi_trips_hourly",
+      "sparkOptions": {
+        "path": "hdfs://namenode:8020/gold/chicago/f_taxi_trips_hourly",
+        "fileFormat": "parquet"
+      }
+    },
+    "online": true
+  },
+  "meta": {
+    "createdTimestamp": "2022-05-19T02:11:33.926292Z",
+    "lastUpdatedTimestamp": "2022-05-19T02:11:33.926292Z"
+  }
+}
+```
+Pode-se também enriquecer um dataset utilizando as features da feature store. Para enriquecer o seguinte dataset, que contem os seguintes campos (um campo de entidade e um campo de timestamp). Gostaria de enriquecer estes dados com as features definidas anteriormente. 
+
+![entity dataset](docs/img/entity-dataset.png)
+
+O SDK da feature store se encarrega por gerar uma query que irá consultar os dados da Offline store indicada e irá recuperar os dados requeridos, garantindo a sua consitência temporal; este processo é realizado iniciando um job spark utilizando a sessão do spark ativa. Uma query de exemplo para realizar um point-in-join, gerado pelo SDK do Feast é mostrado a seguir. 
+
+```sql
+
+/*
+ Compute a deterministic hash for the `left_table_query_string` that will be used throughout
+ all the logic as the field to GROUP BY the data
+*/
+CREATE OR REPLACE TEMPORARY VIEW entity_dataframe AS (
+    SELECT *,
+        event_timestamp AS entity_timestamp
+        
+            ,CONCAT(
+                
+                    CAST(taxi_id AS STRING),
+                
+                CAST(event_timestamp AS STRING)
+            ) AS fv_chi_driver_stats_hourly__entity_row_unique_id
+        
+    FROM feast_entity_df_0bcceae99de4489398444fe8a786a842
+);
+
+---EOS---
+
+
+
+CREATE OR REPLACE TEMPORARY VIEW fv_chi_driver_stats_hourly__cleaned AS (
+
+    WITH fv_chi_driver_stats_hourly__entity_dataframe AS (
+        SELECT
+            taxi_id,
+            entity_timestamp,
+            fv_chi_driver_stats_hourly__entity_row_unique_id
+        FROM entity_dataframe
+        GROUP BY
+            taxi_id,
+            entity_timestamp,
+            fv_chi_driver_stats_hourly__entity_row_unique_id
+    ),
+
+    /*
+     This query template performs the point-in-time correctness join for a single feature set table
+     to the provided entity table.
+
+     1. We first join the current feature_view to the entity dataframe that has been passed.
+     This JOIN has the following logic:
+        - For each row of the entity dataframe, only keep the rows where the `timestamp_field`
+        is less than the one provided in the entity dataframe
+        - If there a TTL for the current feature_view, also keep the rows where the `timestamp_field`
+        is higher the the one provided minus the TTL
+        - For each row, Join on the entity key and retrieve the `entity_row_unique_id` that has been
+        computed previously
+
+     The output of this CTE will contain all the necessary information and already filtered out most
+     of the data that is not relevant.
+    */
+
+    fv_chi_driver_stats_hourly__subquery AS (
+        SELECT
+            event_timestamp as event_timestamp,
+            created as created_timestamp,
+            taxi_id AS taxi_id,
+            
+                avg_trip_time as avg_trip_time
+            
+        FROM `feast_entity_df_1016d19fdb32451fbd9ffaafa641ed23`
+        WHERE event_timestamp <= '2022-04-10T23:00:00'
+        
+    ),
+
+    fv_chi_driver_stats_hourly__base AS (
+        SELECT
+            subquery.*,
+            entity_dataframe.entity_timestamp,
+            entity_dataframe.fv_chi_driver_stats_hourly__entity_row_unique_id
+        FROM fv_chi_driver_stats_hourly__subquery AS subquery
+        INNER JOIN fv_chi_driver_stats_hourly__entity_dataframe AS entity_dataframe
+        ON TRUE
+            AND subquery.event_timestamp <= entity_dataframe.entity_timestamp
+
+            
+
+            
+            AND subquery.taxi_id = entity_dataframe.taxi_id
+            
+    ),
+
+    /*
+     2. If the `created_timestamp_column` has been set, we need to
+     deduplicate the data first. This is done by calculating the
+     `MAX(created_at_timestamp)` for each event_timestamp.
+     We then join the data on the next CTE
+    */
+    
+    fv_chi_driver_stats_hourly__dedup AS (
+        SELECT
+            fv_chi_driver_stats_hourly__entity_row_unique_id,
+            event_timestamp,
+            MAX(created_timestamp) as created_timestamp
+        FROM fv_chi_driver_stats_hourly__base
+        GROUP BY fv_chi_driver_stats_hourly__entity_row_unique_id, event_timestamp
+    ),
+    
+
+    /*
+     3. The data has been filtered during the first CTE "*__base"
+     Thus we only need to compute the latest timestamp of each feature.
+    */
+    fv_chi_driver_stats_hourly__latest AS (
+        SELECT
+            event_timestamp,
+            created_timestamp,
+            fv_chi_driver_stats_hourly__entity_row_unique_id
+        FROM
+        (
+            SELECT *,
+                ROW_NUMBER() OVER(
+                    PARTITION BY fv_chi_driver_stats_hourly__entity_row_unique_id
+                    ORDER BY event_timestamp DESC,created_timestamp DESC
+                ) AS row_number
+            FROM fv_chi_driver_stats_hourly__base
+            
+                INNER JOIN fv_chi_driver_stats_hourly__dedup
+                USING (fv_chi_driver_stats_hourly__entity_row_unique_id, event_timestamp, created_timestamp)
+            
+        )
+        WHERE row_number = 1
+    )
+
+    /*
+     4. Once we know the latest value of each feature for a given timestamp,
+     we can join again the data back to the original "base" dataset
+    */
+    SELECT base.*
+    FROM fv_chi_driver_stats_hourly__base as base
+    INNER JOIN fv_chi_driver_stats_hourly__latest
+    USING(
+        fv_chi_driver_stats_hourly__entity_row_unique_id,
+        event_timestamp
+        
+            ,created_timestamp
+        
+    )
+)
+
+---EOS---
+
+
+
+/*
+ Joins the outputs of multiple time travel joins to a single table.
+ The entity_dataframe dataset being our source of truth here.
+ */
+
+SELECT taxi_id, event_timestamp, avg_trip_time
+FROM entity_dataframe
+
+LEFT JOIN (
+    SELECT
+        fv_chi_driver_stats_hourly__entity_row_unique_id
+        
+            ,avg_trip_time
+        
+    FROM fv_chi_driver_stats_hourly__cleaned
+) USING (fv_chi_driver_stats_hourly__entity_row_unique_id)
+```
+
+Por fim, apresenta-se o dataset gerado.
+
+![Feature retrieval](docs/img/feature-retrieval.png)
+
+# END
+
+Consulte o código apresentado no case neste repositório https://github.com/danielfaioli/my-feast
+
+# LICENSE
+
+Distributed under the MIT License. See LICENSE for more information.
