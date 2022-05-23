@@ -44,7 +44,13 @@ agg(
 withColumn("precipitation_type", precipitation(F.col("precipitation_type"))).\
 withColumn("read_id", F.unix_timestamp(F.col("event_timestamp"),"dd-MM-yyyy HH:00:00").cast("string")).\
 withColumn("created", F.to_date(F.col("event_timestamp"), "dd-MM-yyyy HH:00:00")).\
-withColumn("event_timestamp", F.col("event_timestamp").cast("string"))
+withColumn("event_timestamp", F.from_unixtime(
+    F.unix_timestamp(
+        F.col("event_timestamp"),
+        "dd-MM-yyyy HH:00:00"
+    ), 
+"yyyy-MM-dd HH:00:00"
+))
 
 g_writer(
     df=df,
@@ -52,9 +58,7 @@ g_writer(
     partitionBy="created"
 )
 
-# COMMAND ----------
-
-display(df.filter(F.col("read_id") == "1648771200"))
+# display(df)
 
 # COMMAND ----------
 
@@ -82,7 +86,7 @@ station_reads_source = SparkSource(
 # Feature Definition
 station_reads_fv = FeatureView(
     name="fv_chi_station_reads_hourly",
-    entities=["read_id"],
+    entities=[],
     features=[
         Feature(name="precipitation_type", dtype=ValueType.STRING),
         Feature(name="avg_temp", dtype=ValueType.FLOAT),
@@ -96,7 +100,7 @@ station_reads_fv = FeatureView(
 read_entity = Entity(name="read_id", value_type=ValueType.STRING)
 
 
-fs.apply([read_entity, station_reads_fv])
+fs.apply([station_reads_fv])
 
 # COMMAND ----------
 
@@ -108,7 +112,23 @@ from feast import Entity
 
 fs = FeatureStore("./station_reads_hourly_fs")
 
-fs.list_feature_views()
+fs.get_feature_view("fv_chi_station_reads_hourly")
+
+# COMMAND ----------
+
+spark.conf.set("spark.databricks.delta.formatCheck.enabled", False)
+
+entity_df = df.select("event_timestamp").toPandas()
+
+hist_feat = fs.get_historical_features(
+    entity_df=entity_df,
+    features=["fv_chi_station_reads_hourly:precipitation_type"]
+    
+)
+
+# COMMAND ----------
+
+hist_feat.to_spark_df().show()
 
 # COMMAND ----------
 
