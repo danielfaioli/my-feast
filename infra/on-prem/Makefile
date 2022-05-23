@@ -6,6 +6,8 @@
 repository := danielfaioli
 version := 0.1.0
 
+SHELL := /bin/bash
+
 build: 
 	@docker build . -t=spark-standalone-cluster-base:latest -t=spark-standalone-cluster-base:${version}  --file=./docker/cluster-base/Dockerfile
 	@docker build . -t=spark-standalone-spark-base:latest -t=spark-standalone-spark-base:${version} --file=./docker/spark-base/Dockerfile
@@ -22,7 +24,7 @@ cluster:
 
 # starts cluster and interactive interface (Jupyter Hub)
 interactive:
-	@. ./environment.sh
+	. environment.sh
 	@docker compose up -d namenode datanode spark-master spark-worker-1  spark-worker-2 jupyterlab
 
 # starts the cluster and the ingestion process 
