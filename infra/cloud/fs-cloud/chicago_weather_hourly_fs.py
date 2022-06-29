@@ -104,15 +104,33 @@ fs.apply([station_reads_fv])
 
 # COMMAND ----------
 
+# Validate feature metadata
+
+print(fs.get_feature_view("fv_chi_station_reads_hourly"))
+
+
+# COMMAND ----------
+
+# MAGIC %md # Exploring Feature Store
+
+# COMMAND ----------
+
 from feast.infra.offline_stores.contrib.spark_offline_store.spark_source import SparkSource
 from feast import Feature, FeatureView, ValueType
 from feast import FeatureStore
 from datetime import timedelta, datetime
 from feast import Entity
 
+import warnings
+warnings.filterwarnings("ignore")
+
+# create FeatureStore object
+
 fs = FeatureStore("./station_reads_hourly_fs")
 
-fs.get_feature_view("fv_chi_station_reads_hourly")
+# COMMAND ----------
+
+fs.list_feature_views()
 
 # COMMAND ----------
 
@@ -133,11 +151,15 @@ hist_feat.to_spark_df().show()
 # COMMAND ----------
 
 entities = fs.list_entities()
+print("ENTITIES: \n")
 for en in entities:
     print(f"{en.name}")
+    print(en)
     print("="*100)
-
+    
+print("FEATURE VIEWS: \n")
 for f in fs.list_feature_views():
+    print(f"{f.name}")
     print(f)
     print("="*100)
 

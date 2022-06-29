@@ -1,6 +1,6 @@
 registry:
   registry_store_type: feast_azure_provider.registry_store.AzBlobRegistryStore
-  path: "https://myfeastregistry.blob.core.windows.net/feast/registry.db"
+  path: "https://myfeastregistry.blob.core.windows.net/feast/registry-teste-dm.db" # "https://myfeastregistry.blob.core.windows.net/feast/registry.db"
 project: datamaster_teste
 provider: local
 online_store:
